@@ -32,19 +32,25 @@ export function useUpload() {
         fileSize: file.size,
       };
 
-      const { uploadUrl, documentId, userId } = await requestPresignedURL(
+      const { uploadUrl, documentId, userId, key } = await requestPresignedURL(
         uploadData,
         token
       );
+
+      console.log(uploadUrl);
+
       await uploadToS3(file, uploadUrl);
 
-      await notifyAPI({
-        user_id: userId,
-        document_id: documentId,
-        file_name: file.name,
-        s3_key: uploadUrl.split(".com/")[1],
-        file_size: file.size,
-      });
+      await notifyAPI(
+        {
+          user_id: userId,
+          document_id: documentId,
+          file_name: file.name,
+          s3_key: key,
+          file_size: file.size,
+        },
+        token
+      );
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {

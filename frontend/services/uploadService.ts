@@ -50,11 +50,12 @@ export async function uploadToS3(file: File, presignedUrl: string) {
   if (!res.ok) throw new Error("Failed to upload file to S3");
 }
 
-export async function notifyAPI(payload: UploadCompletePayload) {
+export async function notifyAPI(payload: UploadCompletePayload, token: string) {
   const res = await fetch(`${API_URL}/api/upload-complete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
