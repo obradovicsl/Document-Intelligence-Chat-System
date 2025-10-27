@@ -20,19 +20,40 @@ services:
       timeout: 10s
       retries: 3
 
+  worker:
+    build: ./fastapi_worker
+    container_name: fastapi_worker
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
+    depends_on:
+      - localstack
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   localstack:
     image: localstack/localstack
     container_name: localstack_main
     restart: unless-stopped
     ports:
       - "4566:4566"
+    env_file:
+      - .env
     environment:
-      - SERVICES=s3,sqs,lambda,dynamodb
-      - DEBUG=1
+      - SERVICES=${LOCALSTACK_SERVICES}
+      - DEBUG={LOCALSTACK_DEBUG}
       - DATA_DIR=/tmp/localstack/data
       - PERSISTENCE=1
     volumes:
       - localstack-data:/var/lib/localstack
+      - ./init-scripts:/etc/localstack/init/ready.d
     networks:
       - app-network
     healthcheck:
