@@ -41,6 +41,7 @@ func main() {
 
     // Upload route
     api.HandleFunc("/upload", handlers.GeneratePresignedURL).Methods("POST")
+    api.HandleFunc("/upload-complete", handlers.UploadCompleteHandler).Methods("POST")
     // api.HandleFunc("/documents", handlers.GetDocuments).Methods("GET")
     // api.HandleFunc("/documents/{id}", handlers.GetDocument).Methods("GET")
     // api.HandleFunc("/chat", handlers.Chat).Methods("POST")
