@@ -5,4 +5,4 @@ pydantic
 PyPDF2
 pinecone
 psycopg2-binary
-openai
+google-generativeai
