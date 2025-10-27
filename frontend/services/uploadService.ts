@@ -9,8 +9,17 @@ export type UploadRequest = {
 export type UploadResponse = {
   uploadUrl: string;
   documentId: string;
+  userId: string;
   key: string;
 };
+
+export interface UploadCompletePayload {
+  user_id: string;
+  document_id: string;
+  file_name: string;
+  s3_key: string;
+  file_size: number;
+}
 
 export async function requestPresignedURL(
   uploadData: UploadRequest,
@@ -39,4 +48,21 @@ export async function uploadToS3(file: File, presignedUrl: string) {
   });
 
   if (!res.ok) throw new Error("Failed to upload file to S3");
+}
+
+export async function notifyAPI(payload: UploadCompletePayload) {
+  const res = await fetch(`${API_URL}/api/upload-complete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to notify API: ${res.status} ${text}`);
+  }
+
+  return await res.json(); // ili možeš vratiti status OK ako backend ne vraća JSON
 }
