@@ -2,3 +2,7 @@ fastapi
 uvicorn[standard]
 boto3
 pydantic
+PyPDF2
+pinecone
+psycopg2-binary
+openai

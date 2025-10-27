@@ -1,21 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import boto3
-import os
-from config import AWS_ENDPOINT, AWS_REGION, AWS_ACCESS_KEY, AWS_SECRET_KEY, BUCKET_NAME, DOWNLOAD_DIR
+from utils import download_from_s3, parse_pdf, chunk_text, embed_and_upsert
 
 app = FastAPI()
 
-# S3 client za LocalStack
-s3 = boto3.client(
-    "s3",
-    endpoint_url=AWS_ENDPOINT,
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-)
 
-# Payload model
 class UploadPayload(BaseModel):
     user_id: str
     document_id: str
@@ -26,8 +15,30 @@ class UploadPayload(BaseModel):
 @app.post("/process-document")
 async def process_document(payload: UploadPayload):
     try:
-        local_path = os.path.join(DOWNLOAD_DIR, payload.document_id or "temp_file")
-        s3.download_file(BUCKET_NAME, payload.s3_key, local_path)
-        return {"status": "success", "message": f"File downloaded to {local_path}"}
+        print(payload.document_id, payload.s3_key, payload.file_size, payload.file_name)
+        print("Downloading file from S3")
+        file_bytes = download_from_s3(payload.s3_key)
+        
+        print("Parsing PDF...")
+        text = parse_pdf(file_bytes)
+        
+        print("Chunking text")
+        chunks = chunk_text(text)
+
+        metadata = {
+            "document_id": payload.document_id,
+            "user_id": payload.user_id,
+            "file_name": payload.file_name,
+            "s3_key": payload.s3_key,
+            "file_size": payload.file_size
+        }
+
+        # Embedding
+        print("Embedding and upserting")
+        embed_and_upsert(chunks, metadata)
+
+        print("DONE!")
+        return {"status": "success", "message": "File chunked and embedded"}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
