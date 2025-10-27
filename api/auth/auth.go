@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -22,24 +23,29 @@ func Init() {
 func AuthMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         // Extract token
+        slog.Info("extracting token")
         authHeader := r.Header.Get("Authorization")
         if authHeader == "" {
             http.Error(w, "Missing authorization header", http.StatusUnauthorized)
+            slog.Error("missing auth header")
             return
         }
 
         token := strings.TrimPrefix(authHeader, "Bearer ")
         if token == authHeader {
             http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+            slog.Error("invalid authorization format")
             return
         }
 
         // Verify JWT with Clerk
+        slog.Info("verifyign JWT with Clerk")
         claims, err := jwt.Verify(r.Context(), &jwt.VerifyParams{
             Token: token,
         })
         if err != nil {
             http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+            slog.Error("invalid token", "error", err.Error())
             return
         }
 

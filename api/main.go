@@ -13,6 +13,7 @@ import (
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/handlers"
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/logger"
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/repository"
+	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/services"
 )
 
 func main() {
@@ -21,9 +22,10 @@ func main() {
     log := logger.New(os.Getenv("ENV"))
     slog.SetDefault(log)
 
-    // DB Init
+    // Init
     repository.Init()
     auth.Init()
+    services.Init()
 
     // Setup router
     r := mux.NewRouter()
