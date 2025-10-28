@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/auth"
+	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/dto"
 )
 
 // GET /api/documents
@@ -22,18 +23,22 @@ func (h *DocumentHandler) HandleGetDocuments(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	docsDTO := dto.ToDocumentDTOList(docs)
+
+	response := dto.DocumentListResponse{
+		Documents: docsDTO,
+		Count: len(docsDTO),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"documents": docs,
-		"count":     len(docs),
-	})
+	json.NewEncoder(w).Encode(response)
 }
 
 // GET /api/documents/{id}
 func (h *DocumentHandler) HandleGetDocument(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := auth.GetUserID(r)
-	documentID := r.PathValue("id") // Go 1.22+ path parameter
+	documentID := r.PathValue("id")
 
 	if documentID == "" {
 		http.Error(w, "Document ID is required", http.StatusBadRequest)
@@ -47,7 +52,6 @@ func (h *DocumentHandler) HandleGetDocument(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Proveri vlasništvo
 	if doc.UserID != userID {
 		slog.Warn("unauthorized document access",
 			"document_id", documentID,
@@ -57,6 +61,31 @@ func (h *DocumentHandler) HandleGetDocument(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	response := dto.ToDocumentDTO(doc)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(doc)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GET /api/documents/user/me
+func (h *DocumentHandler) HandleGetDocumentForUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	currentUserID := auth.GetUserID(r)
+
+	docs, err := h.service.GetUserDocuments(ctx, currentUserID)
+	if err != nil {
+		slog.Error("failed to get document", "error", err, "user_id", currentUserID)
+		http.Error(w, "Document not found", http.StatusNotFound)
+		return
+	}
+
+	docsDTO := dto.ToDocumentDTOList(docs)
+
+	response := dto.DocumentListResponse{
+		Documents: docsDTO,
+		Count: len(docsDTO),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

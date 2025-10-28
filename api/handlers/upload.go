@@ -29,7 +29,6 @@ func (h *DocumentHandler) HandleInitUpload(w http.ResponseWriter, r *http.Reques
 
 	slog.Info("init upload request", "user_id", userID)
 
-	// Decode request body
 	var req dto.UploadDocumentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		slog.Error("invalid request body", "error", err)
@@ -49,7 +48,6 @@ func (h *DocumentHandler) HandleInitUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Create document & presignedURL
 	doc, uploadURL, err := h.service.CreateDocument(
 		ctx,
 		userID,
@@ -64,10 +62,9 @@ func (h *DocumentHandler) HandleInitUpload(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Vrati response
 	response := dto.UploadDocumentResponse{
 		UploadURL:  uploadURL,
-		DocumentID: doc.ID,
+		DocumentID: doc.ID.String(),
 		UserID:     doc.UserID,
 		Key:        doc.S3Key,
 	}
@@ -89,7 +86,6 @@ func (h *DocumentHandler) HandleCompleteUpload(w http.ResponseWriter, r *http.Re
 
 	slog.Info("upload complete request", "user_id", userID)
 
-	// Decode payload
 	var payload dto.UploadDocumentPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		slog.Error("invalid request body", "error", err)
@@ -120,7 +116,6 @@ func (h *DocumentHandler) HandleCompleteUpload(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Pošalji na Python worker za processing
 	slog.Info("notifying worker", "document_id", payload.DocumentID)
 	if err := h.notifyWorker(payload); err != nil {
 		slog.Error("failed to notify worker", "error", err, "document_id", payload.DocumentID)
@@ -140,7 +135,7 @@ func (h *DocumentHandler) HandleCompleteUpload(w http.ResponseWriter, r *http.Re
 		"user_id", userID)
 }
 
-// notifyWorker šalje payload Python workeru za processing
+
 func (h *DocumentHandler) notifyWorker(payload dto.UploadDocumentPayload) error {
 	workerURL := "http://worker:8080/documents/process"
 

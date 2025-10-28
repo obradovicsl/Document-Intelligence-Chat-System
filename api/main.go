@@ -60,9 +60,12 @@ func main() {
     api.HandleFunc("/upload/init", docHandler.HandleInitUpload).Methods("POST")
     api.HandleFunc("/upload/complete", docHandler.HandleCompleteUpload).Methods("POST")
     
-    // 
-    // api.HandleFunc("/documents", handlers.GetDocuments).Methods("GET")
-    // api.HandleFunc("/documents/{id}", handlers.GetDocument).Methods("GET")
+    // Document GET endpoints
+    api.HandleFunc("/documents", docHandler.HandleGetDocuments).Methods("GET")
+    api.HandleFunc("/documents/{id}", docHandler.HandleGetDocument).Methods("GET")
+    api.HandleFunc("/documents/user/me", docHandler.HandleGetDocumentForUser).Methods("GET")
+    
+    // Chat endpoints
     // api.HandleFunc("/chat", handlers.Chat).Methods("POST")
 
     // CORS

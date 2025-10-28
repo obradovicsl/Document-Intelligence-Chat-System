@@ -23,7 +23,7 @@ func NewDocumentService(repo repository.DocumentRepository, s3 *S3Service) *Docu
 }
 
 func (s *DocumentService) CreateDocument(ctx context.Context, userID, fileName, fileType string, fileSize int64) (*models.Document, string, error) {
-    documentID := uuid.New().String()
+    documentID := uuid.New()
     s3Key := s.s3Service.GenerateS3Key(userID, fileName)
     
     slog.Info("creating document",

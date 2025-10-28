@@ -40,9 +40,14 @@ func Init() error {
     
     // Auto migrate
     slog.Info("running auto migrations")
-    if err := DB.AutoMigrate(&models.Document{}); err != nil {
+
+    if err := DB.AutoMigrate(
+        &models.Document{},
+        &models.Chat{},
+    ); err != nil {
         return fmt.Errorf("failed to run migrations: %w", err)
     }
+
     
     slog.Info("database initialized successfully")
     return nil
