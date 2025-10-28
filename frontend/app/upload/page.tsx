@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useUpload } from "@/hooks/useUpload";
+import { useUpload } from "@/lib/hooks/useUpload";
 
 export default function UploadBox() {
   const [file, setFile] = useState<File | null>(null);

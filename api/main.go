@@ -18,16 +18,32 @@ import (
 
 func main() {
     // Load env
-    godotenv.Load()
+    if err := godotenv.Load(); err != nil {
+        slog.Warn("no .env file found, using system environment variables")
+	}
+    
     log := logger.New(os.Getenv("ENV"))
     slog.SetDefault(log)
 
-    // Init
-    repository.Init()
-    auth.Init()
-    services.Init()
+    // Initialize database
+    if err := repository.Init(); err != nil {
+        slog.Error("Failed to initialize database:", "error", err)
+        os.Exit(1)
+    }
+    
+    s3Service, err := services.InitS3()
+    if err != nil {
+        slog.Error("Failed to initialize database:", "error", err)
+        os.Exit(1)
+    }
 
-    // Setup router
+    auth.Init()
+    
+    docRepo := repository.NewDocumentRepository(repository.DB)
+    docService := services.NewDocumentService(docRepo, s3Service)
+    docHandler := handlers.NewDocumentHandler(docService)
+
+    
     r := mux.NewRouter()
 
     // Public routes
@@ -35,13 +51,16 @@ func main() {
         w.Write([]byte("OK"))
     }).Methods("GET")
 
+
     // Protected routes
     api := r.PathPrefix("/api").Subrouter()
     api.Use(auth.AuthMiddleware)
 
-    // Upload route
-    api.HandleFunc("/upload", handlers.GeneratePresignedURL).Methods("POST")
-    api.HandleFunc("/upload-complete", handlers.UploadCompleteHandler).Methods("POST")
+    // Document upload endpoints
+    api.HandleFunc("/upload/init", docHandler.HandleInitUpload).Methods("POST")
+    api.HandleFunc("/upload/complete", docHandler.HandleCompleteUpload).Methods("POST")
+    
+    // 
     // api.HandleFunc("/documents", handlers.GetDocuments).Methods("GET")
     // api.HandleFunc("/documents/{id}", handlers.GetDocument).Methods("GET")
     // api.HandleFunc("/chat", handlers.Chat).Methods("POST")

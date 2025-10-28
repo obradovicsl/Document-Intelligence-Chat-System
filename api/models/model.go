@@ -1,23 +1,24 @@
 package models
 
-type UploadRequest struct {
-    FileName    string `json:"fileName"`
-    FileType    string `json:"fileType"`
-    FileSize    int64  `json:"fileSize"`
-}
+import (
+	"time"
 
-type UploadResponse struct {
-    UploadURL  string `json:"uploadUrl"`
-    DocumentID string `json:"documentId"`
-    UserID string `json:"userId"`
-    Key        string `json:"key"`
-}
+	"gorm.io/gorm"
+)
 
-type UploadPayload struct {
-    UserID     string `json:"user_id"`
-    DocumentID string `json:"document_id"`
-    FileName   string `json:"file_name"`
-    S3Key      string `json:"s3_key"`
-    FileSize   int64  `json:"file_size"`
+type Document struct {
+    ID          string         `gorm:"type:varchar(255);primaryKey" json:"id"`
+    UserID      string         `gorm:"type:varchar(255);not null;index:idx_user_id" json:"userId"`
+    FileName    string         `gorm:"type:varchar(500);not null" json:"fileName"`
+    S3Key       string         `gorm:"type:varchar(500);not null" json:"s3Key"`
+    FileSize    int64          `gorm:"not null" json:"fileSize"`
+    Status      DocStatus      `gorm:"type:varchar(50);not null;index:idx_user_status,priority:2" json:"status"`
+    CreatedAt   time.Time      `gorm:"autoCreateTime" json:"createdAt"`
+    DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
+type DocStatus string
 
+const (
+    StatusUploading  DocStatus = "uploading"
+    StatusReady      DocStatus = "ready"
+)

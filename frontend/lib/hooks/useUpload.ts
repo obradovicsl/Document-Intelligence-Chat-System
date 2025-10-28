@@ -5,7 +5,7 @@ import {
   uploadToS3,
   UploadRequest,
   notifyAPI,
-} from "@/services/uploadService";
+} from "@/lib/services/upload.service";
 
 export function useUpload() {
   const { getToken } = useAuth();

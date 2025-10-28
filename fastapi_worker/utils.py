@@ -12,63 +12,17 @@ from config import (
     AWS_SECRET_KEY, 
     BUCKET_NAME,
     PINECONE_API, 
-    PINECONE_ENV, 
+    PINECONE_INDEX,
     EMBEDDING_MODEL, 
     API_KEY
 )
 
+# ----- SETUP -----
 
 genai.configure(api_key=API_KEY)
 
-# ----- S3 -----
-s3 = boto3.client(
-    "s3",
-    endpoint_url=AWS_ENDPOINT,
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-)
-
-def download_from_s3(s3_key: str) -> bytes:
-    """Download file from S3 bucket"""
-    try:
-        print(f"Downloading from S3: {s3_key}")
-        obj = s3.get_object(Bucket=BUCKET_NAME, Key=s3_key)
-        return obj['Body'].read()
-    except Exception as e:
-        print(f"Error downloading from S3: {str(e)}")
-        raise
-
-# ----- PDF Parsing -----
-def parse_pdf(file_bytes: bytes) -> str:
-    """Extract text from PDF bytes"""
-    try:
-        reader = PdfReader(BytesIO(file_bytes))
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-        return text
-    except Exception as e:
-        print(f"Error parsing PDF: {str(e)}")
-        raise
-
-# ----- Chunking -----
-def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
-    """Split text into overlapping chunks"""
-    chunks = []
-    start = 0
-    text_len = len(text)
-    
-    while start < text_len:
-        end = start + chunk_size
-        chunk = text[start:end]
-        chunks.append(chunk)
-        start += chunk_size - overlap
-    
-    return chunks
-# ----- Pinecone setup -----
 pc = Pinecone(api_key=PINECONE_API)
-index_name = "my-index"
+index_name = PINECONE_INDEX
 
 if index_name not in pc.list_indexes().names():
     pc.create_index(
@@ -83,18 +37,63 @@ if index_name not in pc.list_indexes().names():
 
 index = pc.Index(index_name)
 
+
+# ----- S3 -----
+s3 = boto3.client(
+    "s3",
+    endpoint_url=AWS_ENDPOINT,
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+)
+
+def download_from_s3(s3_key: str) -> bytes:
+    try:
+        print(f"Downloading from S3: {s3_key}")
+        obj = s3.get_object(Bucket=BUCKET_NAME, Key=s3_key)
+        return obj['Body'].read()
+    except Exception as e:
+        print(f"Error downloading from S3: {str(e)}")
+        raise
+
+
+# ----- PDF Parsing -----
+def parse_pdf(file_bytes: bytes) -> str:
+    try:
+        reader = PdfReader(BytesIO(file_bytes))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        return text
+    except Exception as e:
+        print(f"Error parsing PDF: {str(e)}")
+        raise
+
+# ----- Chunking -----
+def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
+    chunks = []
+    start = 0
+    text_len = len(text)
+    
+    while start < text_len:
+        end = start + chunk_size
+        chunk = text[start:end]
+        chunks.append(chunk)
+        start += chunk_size - overlap
+    
+    return chunks
+
+
 # ----- Embedding & Upsert -----
 def embed_and_upsert(chunks: list[str], metadata: dict):
-    """Generate embeddings and upsert to Pinecone"""
     print("Starting embedding and upsert process...")
     vectors_to_upsert = []
     
     try:
-        # Process each chunk
         for i, chunk in enumerate(chunks):
             print(f"Embedding chunk {i+1}/{len(chunks)}")
             
-            # Generate embedding using Gemini
+            # Request -> Gemini API
             result = genai.embed_content(
                 model=EMBEDDING_MODEL,
                 content=chunk,
@@ -111,7 +110,7 @@ def embed_and_upsert(chunks: list[str], metadata: dict):
                 "metadata": {
                     **metadata, 
                     "chunk_index": i,
-                    "chunk_text": chunk[:500]  # Store first 500 chars for reference
+                    "chunk_text": chunk
                 }
             })
         

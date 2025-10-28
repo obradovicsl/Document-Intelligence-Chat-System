@@ -21,6 +21,15 @@ export default function Navbar() {
           </Link>
         </SignedOut>
         <SignedIn>
+          <Link href="/upload">
+            <Button>Go to Upload Page</Button>
+          </Link>
+          <Link href="/documents">
+            <Button>Documents</Button>
+          </Link>
+          <Link href="/chat">
+            <Button>Chat</Button>
+          </Link>
           <span className="mr-2">{user?.firstName || user?.username}</span>
           <SignOutButton>
             <Button variant="destructive">Logout</Button>

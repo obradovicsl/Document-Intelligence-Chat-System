@@ -6,119 +6,219 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/auth"
-	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/models"
+	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/dto"
 	"github.com/obradovicsl/Document-Intelligence-Chat-System/API/services"
 )
 
-func GeneratePresignedURL(w http.ResponseWriter, r *http.Request) {
-    userID := auth.GetUserID(r)
-
-    slog.Info("decoding request")
-    var req models.UploadRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "Invalid request body", http.StatusBadRequest)
-        slog.Error("Invalid request body")
-        return
-    }
-
-    // Validate file
-    if req.FileName == "" {
-        http.Error(w, "File name is required", http.StatusBadRequest)
-        slog.Error("file name is required")
-        return
-    }
-
-    // Generate unique key for S3
-    slog.Info("generating s3 key")
-    key := services.GenerateS3Key(userID, req.FileName)
-    
-    // Generate presigned URL
-    slog.Info("generating presigned URL")
-    uploadURL, err := services.GeneratePresignedUploadURL(key, req.FileType, 5*time.Minute)
-    if err != nil {
-        http.Error(w, "Failed to generate upload URL: "+err.Error(), http.StatusInternalServerError)
-        slog.Error("failed to generate upload URL", "error", err.Error())
-        return
-    }
-    
-    // Create document record in database
-    slog.Info("creating document record in database")
-    documentID, err := services.CreateDocumentRecord(userID, req.FileName, key, req.FileSize)
-    if err != nil {
-        slog.Error("failed to create document record", "error", err.Error())
-        http.Error(w, "Failed to create document record: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    // Return response
-    response := models.UploadResponse{
-        UploadURL:  uploadURL,
-        DocumentID: documentID,
-        UserID: userID,
-        Key:        key,
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(response)
+type DocumentHandler struct {
+	service *services.DocumentService
 }
 
-
-func UploadCompleteHandler(w http.ResponseWriter, r *http.Request) {
-    var payload models.UploadPayload
-    if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-        slog.Error("invalid request", "error", err)
-        http.Error(w, "bad request", http.StatusBadRequest)
-        return
-    }
-
-    slog.Info("saving document record")    
-    err := services.SaveDocumentRecord(payload.DocumentID)
-    if err != nil {
-        slog.Error("failed to save document record", "error", err)
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
-
-    slog.Info("sending payload to python worker")
-    err = notifyWorker(payload)
-    if err != nil {
-        slog.Error("failed to send to queue", "error", err)
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
-
-    w.WriteHeader(http.StatusOK)
+func NewDocumentHandler(service *services.DocumentService) *DocumentHandler {
+	return &DocumentHandler{
+		service: service,
+	}
 }
 
+// POST /api/upload/init
+func (h *DocumentHandler) HandleInitUpload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := auth.GetUserID(r)
 
-func notifyWorker(payload models.UploadPayload) error {
-    workerURL := "http://worker:8080/process-document"
+	slog.Info("init upload request", "user_id", userID)
 
-    body, err := json.Marshal(payload)
-    if err != nil {
-        return err
-    }
+	// Decode request body
+	var req dto.UploadDocumentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Error("invalid request body", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-    req, err := http.NewRequest("POST", workerURL, bytes.NewBuffer(body))
-    if err != nil {
-        return err
-    }
+	if req.FileName == "" {
+		slog.Error("file name is required")
+		http.Error(w, "File name is required", http.StatusBadRequest)
+		return
+	}
 
-    req.Header.Set("Content-Type", "application/json")
+	if req.FileSize <= 0 {
+		slog.Error("file size must be positive")
+		http.Error(w, "Invalid file size", http.StatusBadRequest)
+		return
+	}
 
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	// Create document & presignedURL
+	doc, uploadURL, err := h.service.CreateDocument(
+		ctx,
+		userID,
+		req.FileName,
+		req.FileType,
+		req.FileSize,
+	)
 
-    if resp.StatusCode != http.StatusOK {
-        return fmt.Errorf("worker returned status: %s", resp.Status)
-    }
+	if err != nil {
+		slog.Error("failed to create document", "error", err)
+		http.Error(w, "Failed to initialize upload: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    return nil
+	// Vrati response
+	response := dto.UploadDocumentResponse{
+		UploadURL:  uploadURL,
+		DocumentID: doc.ID,
+		UserID:     doc.UserID,
+		Key:        doc.S3Key,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+
+	slog.Info("upload initialized",
+		"document_id", doc.ID,
+		"user_id", userID,
+		"file_name", req.FileName)
+}
+
+// POST /api/upload/complete
+func (h *DocumentHandler) HandleCompleteUpload(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := auth.GetUserID(r)
+
+	slog.Info("upload complete request", "user_id", userID)
+
+	// Decode payload
+	var payload dto.UploadDocumentPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		slog.Error("invalid request body", "error", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	doc, err := h.service.GetDocumentByID(ctx, payload.DocumentID)
+	if err != nil {
+		slog.Error("failed to get document", "error", err, "document_id", payload.DocumentID)
+		http.Error(w, "Document not found", http.StatusNotFound)
+		return
+	}
+
+	if doc.UserID != userID {
+		slog.Warn("unauthorized upload complete attempt",
+			"document_id", payload.DocumentID,
+			"owner_id", doc.UserID,
+			"requester_id", userID)
+		http.Error(w, "Unauthorized", http.StatusForbidden)
+		return
+	}
+
+	slog.Info("marking document as uploaded", "document_id", payload.DocumentID)
+	if err := h.service.MarkAsUploaded(ctx, payload.DocumentID); err != nil {
+		slog.Error("failed to mark as uploaded", "error", err, "document_id", payload.DocumentID)
+		http.Error(w, "Failed to update document status", http.StatusInternalServerError)
+		return
+	}
+
+	// Pošalji na Python worker za processing
+	slog.Info("notifying worker", "document_id", payload.DocumentID)
+	if err := h.notifyWorker(payload); err != nil {
+		slog.Error("failed to notify worker", "error", err, "document_id", payload.DocumentID)
+		
+		http.Error(w, "Failed to start processing", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "processing",
+		"message": "Document processing started",
+	})
+
+	slog.Info("upload completed successfully",
+		"document_id", payload.DocumentID,
+		"user_id", userID)
+}
+
+// GET /api/documents
+func (h *DocumentHandler) HandleGetDocuments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := auth.GetUserID(r)
+
+	slog.Debug("get documents request", "user_id", userID)
+
+	docs, err := h.service.GetUserDocuments(ctx, userID)
+	if err != nil {
+		slog.Error("failed to get documents", "error", err, "user_id", userID)
+		http.Error(w, "Failed to fetch documents", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"documents": docs,
+		"count":     len(docs),
+	})
+}
+
+// GET /api/documents/{id}
+func (h *DocumentHandler) HandleGetDocument(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := auth.GetUserID(r)
+	documentID := r.PathValue("id") // Go 1.22+ path parameter
+
+	if documentID == "" {
+		http.Error(w, "Document ID is required", http.StatusBadRequest)
+		return
+	}
+
+	doc, err := h.service.GetDocumentByID(ctx, documentID)
+	if err != nil {
+		slog.Error("failed to get document", "error", err, "document_id", documentID)
+		http.Error(w, "Document not found", http.StatusNotFound)
+		return
+	}
+
+	// Proveri vlasništvo
+	if doc.UserID != userID {
+		slog.Warn("unauthorized document access",
+			"document_id", documentID,
+			"owner_id", doc.UserID,
+			"requester_id", userID)
+		http.Error(w, "Unauthorized", http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(doc)
+}
+
+// notifyWorker šalje payload Python workeru za processing
+func (h *DocumentHandler) notifyWorker(payload dto.UploadDocumentPayload) error {
+	workerURL := "http://worker:8080/process-document"
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", workerURL, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request to worker: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("worker returned status: %s", resp.Status)
+	}
+
+	return nil
 }

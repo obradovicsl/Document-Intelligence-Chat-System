@@ -25,7 +25,7 @@ export async function requestPresignedURL(
   uploadData: UploadRequest,
   token: string
 ): Promise<UploadResponse> {
-  const res = await fetch(`${API_URL}/api/upload`, {
+  const res = await fetch(`${API_URL}/api/upload/init`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -51,7 +51,7 @@ export async function uploadToS3(file: File, presignedUrl: string) {
 }
 
 export async function notifyAPI(payload: UploadCompletePayload, token: string) {
-  const res = await fetch(`${API_URL}/api/upload-complete`, {
+  const res = await fetch(`${API_URL}/api/upload/complete`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

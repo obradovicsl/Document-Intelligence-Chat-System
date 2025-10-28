@@ -17,10 +17,6 @@ export default function HomePage() {
           This is your AI-powered document management and chat platform.
         </p>
 
-        <Link href="/upload">
-          <Button>Go to Upload Page</Button>
-        </Link>
-
         <SignedIn>
           <div className="mt-6 p-4 border rounded bg-white shadow">
             <p>Hello, {user?.firstName || user?.username}!</p>
