@@ -4,17 +4,18 @@
 import { useState, useCallback } from "react";
 import { chatService } from "@/lib/services/chat.service";
 import { Message, ChatError } from "@/lib/types/chat.types";
+import { useAuth } from "@clerk/nextjs";
 
 interface UseChatOptions {
   userId: string;
-  documentId?: string;
   onError?: (error: ChatError) => void;
 }
 
-export function useChat({ userId, documentId, onError }: UseChatOptions) {
+export function useChat({ userId, onError }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { getToken } = useAuth();
 
   const sendMessage = useCallback(
     async (content?: string) => {
@@ -33,11 +34,18 @@ export function useChat({ userId, documentId, onError }: UseChatOptions) {
       setIsLoading(true);
 
       try {
-        const response = await chatService.sendMessage({
-          question: messageContent,
-          userId,
-          documentId,
-        });
+        const token = await getToken();
+        if (!token) {
+          throw new Error("User not authenticated");
+        }
+
+        const response = await chatService.sendMessage(
+          {
+            question: messageContent,
+            userId,
+          },
+          token
+        );
 
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
@@ -55,7 +63,7 @@ export function useChat({ userId, documentId, onError }: UseChatOptions) {
         const errorMessage: Message = {
           id: `error-${Date.now()}`,
           role: "assistant",
-          content: `❌ Sorry, there was an error: ${chatError.message}`,
+          content: `Sorry, there was an error: ${chatError.message}`,
           timestamp: new Date(),
         };
 
@@ -68,7 +76,7 @@ export function useChat({ userId, documentId, onError }: UseChatOptions) {
         setIsLoading(false);
       }
     },
-    [input, userId, documentId, onError]
+    [input, userId, onError]
   );
 
   const clearChat = useCallback(() => {

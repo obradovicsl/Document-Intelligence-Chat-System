@@ -42,6 +42,14 @@ type DocumentListResponse struct {
     Count     int           `json:"count"`
 }
 
+type ChatRequestDTO struct {
+	Question string `json:"question"`
+	UserID   string `json:"user_id"`
+}
+
+type ChatResponseDTO struct {
+	Answer string `json:"answer"`
+}
 
 func ToDocumentDTO(d *models.Document) DocumentDTO {
     return DocumentDTO{

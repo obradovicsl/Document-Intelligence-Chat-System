@@ -7,12 +7,10 @@ import { useState } from "react";
 
 export default function ChatPage() {
   const [userId] = useState("user_123");
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>();
 
   const { messages, input, setInput, isLoading, sendMessage, clearChat } =
     useChat({
       userId,
-      documentId: selectedDocumentId,
       onError: (error) => {
         console.error("Chat error:", error);
       },

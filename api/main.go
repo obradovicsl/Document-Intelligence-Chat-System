@@ -41,7 +41,7 @@ func main() {
     
     docRepo := repository.NewDocumentRepository(repository.DB)
     docService := services.NewDocumentService(docRepo, s3Service)
-    docHandler := handlers.NewDocumentHandler(docService)
+    docHandler := handlers.NewDocumentHandler(docService, "http://worker:8080") // get from .env
 
     
     r := mux.NewRouter()
@@ -66,7 +66,7 @@ func main() {
     api.HandleFunc("/documents/user/me", docHandler.HandleGetDocumentForUser).Methods("GET")
     
     // Chat endpoints
-    // api.HandleFunc("/chat", handlers.Chat).Methods("POST")
+    api.HandleFunc("/question", docHandler.HandleQuestion).Methods("POST")
 
     // CORS
     c := cors.New(cors.Options{

@@ -21,5 +21,5 @@ index = pc.Index(index_name)
 def upsert_vectors(vectors):
     index.upsert(vectors=vectors)
 
-def query_vectors(embedding, top_k=5, filter=None):
-    return index.query(vector=embedding, top_k=top_k, filter=filter)
+def query_vectors(embedding, top_k=10, filter=None):
+    return index.query(vector=embedding, top_k=top_k, filter=filter, include_metadata=True)

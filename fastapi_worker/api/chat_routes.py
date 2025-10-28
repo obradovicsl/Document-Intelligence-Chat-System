@@ -7,6 +7,7 @@ router = APIRouter()
 @router.post("/ask")
 async def ask_question(payload: QuestionPayload):
     try:
+        print(payload.question)
         answer = handle_question(payload)
         return {"status": "success", "answer": answer}
     except Exception as e:

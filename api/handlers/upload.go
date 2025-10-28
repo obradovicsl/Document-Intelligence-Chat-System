@@ -14,11 +14,13 @@ import (
 
 type DocumentHandler struct {
 	service *services.DocumentService
+	pythonWorkerURL string
 }
 
-func NewDocumentHandler(service *services.DocumentService) *DocumentHandler {
+func NewDocumentHandler(service *services.DocumentService, pythonURL string) *DocumentHandler {
 	return &DocumentHandler{
 		service: service,
+		pythonWorkerURL: pythonURL,
 	}
 }
 
@@ -137,7 +139,7 @@ func (h *DocumentHandler) HandleCompleteUpload(w http.ResponseWriter, r *http.Re
 
 
 func (h *DocumentHandler) notifyWorker(payload dto.UploadDocumentPayload) error {
-	workerURL := "http://worker:8080/documents/process"
+	workerURL := h.pythonWorkerURL + "/documents/process"
 
 	body, err := json.Marshal(payload)
 	if err != nil {

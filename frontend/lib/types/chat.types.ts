@@ -8,7 +8,6 @@ export type Message = {
 export type ChatRequest = {
   question: string;
   userId: string;
-  documentId?: string;
 };
 
 export type ChatResponse = {
