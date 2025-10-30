@@ -72,7 +72,7 @@ Upload your PDFs and text documents, and ask questions in natural language. The 
    - Document status changes to "completed"
    - User can now ask questions about the document
 
-## 💬 Chat Query Flow
+## Chat Query Flow
 
 1. **Question Submission**
    - User types question in chat interface
