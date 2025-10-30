@@ -7,6 +7,7 @@ A modern document intelligence platform that enables users to upload documents a
 Upload your PDFs and text documents, and ask questions in natural language. The system automatically processes documents, creates semantic embeddings, and uses AI to provide accurate answers based on your document content.
 
 ## Architecture
+![RAG Architecture Diagram](diagrams/RAG%20Diagram.png)
 
 ## Tech Stack
 
