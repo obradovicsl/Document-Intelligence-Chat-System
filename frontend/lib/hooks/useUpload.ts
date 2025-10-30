@@ -39,18 +39,24 @@ export function useUpload() {
 
       console.log(uploadUrl);
 
-      await uploadToS3(file, uploadUrl);
+      await uploadToS3(file, uploadUrl, {
+        user_id: userId,
+        document_id: documentId,
+        file_name: file.name,
+        s3_key: key,
+        file_size: file.size,
+      });
 
-      await notifyAPI(
-        {
-          user_id: userId,
-          document_id: documentId,
-          file_name: file.name,
-          s3_key: key,
-          file_size: file.size,
-        },
-        token
-      );
+      // await notifyAPI(
+      //   {
+      //     user_id: userId,
+      //     document_id: documentId,
+      //     file_name: file.name,
+      //     s3_key: key,
+      //     file_size: file.size,
+      //   },
+      //   token
+      // );
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {
