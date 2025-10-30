@@ -38,12 +38,21 @@ export async function requestPresignedURL(
   return res.json();
 }
 
-export async function uploadToS3(file: File, presignedUrl: string) {
+export async function uploadToS3(
+  file: File,
+  presignedUrl: string,
+  payload: UploadCompletePayload
+) {
   const res = await fetch(presignedUrl, {
     method: "PUT",
     body: file,
     headers: {
       "Content-Type": file.type,
+      "x-amz-meta-user_id": payload.user_id,
+      "x-amz-meta-document_id": payload.document_id,
+      "x-amz-meta-file_name": payload.file_name,
+      "x-amz-meta-file_size": payload.file_size.toString(),
+      "x-amz-meta-key": payload.s3_key,
     },
   });
 
